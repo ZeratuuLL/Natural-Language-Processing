@@ -11,3 +11,4 @@ The files are:
   + **run.py** is for the final training. 
   + **word2vec.py** consisits the calculation of gradients, with simple sanity check
   + **sgd.py** only requires one line of code to complete SGD optimization method, with simple sanity check
+  + **saved_state_40000.pickle** is the final trained weights
