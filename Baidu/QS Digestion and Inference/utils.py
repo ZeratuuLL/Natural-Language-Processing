@@ -4,6 +4,7 @@ from zhon.hanzi import punctuation as punc1
 from string import punctuation as punc2
 from collections import Counter
 import itertools
+from gensim.models import Word2Vec
 
 punctuation = punc1 + punc2 + ' '
 
@@ -19,22 +20,31 @@ class preprocessor():
         to process one single sentence/dialogue
     
     self.process_columns():
-        transforms columns into lists of words and get the word2Ind dictionary. 
+        transforms columns into lists of words and get the Word2Ind dictionary. 
         Processed lists will be stored in self.preprocessed. 
-        Dictionary is self.word2Ind. 
+        Dictionary is self.Word2Ind. 
         Collection of all words is self.words
         self.appearance counts the number of how many records contains a certain word
         Naive word count is self.word_count 
     
     self.word2index():
-        replaces words in self.preprocessed with index from self.word2Ind, results saved as self.index
+        replaces words in self.preprocessed with index from self.Word2Ind, results saved as self.index
     
-    self.cleaning() removes some words from the word list by rules or instructions
+    self.cleaning(): 
+        removes some words from the word list by rules or instructions
+    
+    self.train_word2vec(): 
+        extracts all sentences and concatenate them into a list. 
+        Then gensim.models.Word2Vec will be applied. 
+        One can choose to save sentences and word vectors.
     '''
     
-    def __init__(self, train_path, test_path):
+    def __init__(self, train_path, test_path, drop_na):
         self.data_train = pd.read_csv(train_path)
         self.data_test = pd.read_csv(test_path)
+        if drop_na:
+            self.data_train = self.data_train.dropna()
+            self.data_train = self.data_train.dropna()
         self.words = [VERBAL, EMPTY] # this counts all words, initialized by special tokens
         
     def process_sentence(self, sentence, split=False):
@@ -67,7 +77,7 @@ class preprocessor():
                             keys.append(key)
                             values.append(new_word)
                         self.words += new_word
-                return list(zip(keys, values))
+                return [list(item) for item in list(zip(keys, values))]
             else:
                 new_word = jieba.lcut(sentence)
                 #new_word = [word for word in new_word if word not in punctuation] # remove all punctuations
@@ -77,7 +87,7 @@ class preprocessor():
                 return new_word
         except (AttributeError, TypeError): # nan
             if split:
-                return [(EMPTY, EMPTY)]
+                return [[EMPTY, EMPTY]]
             else:
                 return [EMPTY]
 
@@ -112,7 +122,6 @@ class preprocessor():
         self.words = list(self.word_count.keys())
         self.appearance = Counter(list(itertools.chain(*appearance)))
         self.cleaning(insert = [VERBAL, EMPTY])
-        self.word2Ind = dict(zip(self.words, range(len(self.words))))
     
     def word2index(self):
         '''
@@ -122,11 +131,11 @@ class preprocessor():
         self.index = dict(zip(['index_' + column for column in columns], [[] for _ in range(len(columns))]))
         for column in columns:
             if column == 'Dialogue':
-                self.index['index_' + column] = [[(speaker, [self.word2Ind.get(word, -1) for word in text]) for speaker, text in sentence] for sentence in self.preprocessed['preprocessed_' + column]]
+                self.index['index_' + column] = [[(speaker, [self.Word2Ind.get(word, -1) for word in text]) for speaker, text in sentence] for sentence in self.preprocessed['preprocessed_' + column]]
                 self.index['index_' + column] = [[(speaker, [number for number in numbers is number!=-1]) for speaker, numbers in sentence] for sentence in self.index['index_' + column]]
-                self.index['index_' + column] = [[(speaker, numbers if len(numbers)>0 else [self.word2Ind[EMPTY]]) for speaker, numbers in sentence] for sentence in self.index['index_' + column]]
+                self.index['index_' + column] = [[(speaker, numbers if len(numbers)>0 else [self.Word2Ind[EMPTY]]) for speaker, numbers in sentence] for sentence in self.index['index_' + column]]
             else:
-                self.index['index_' + column] = [[self.word2Ind.get(word, -1) for word in text] for text in self.preprocessed['preprocessed_' + column]]
+                self.index['index_' + column] = [[self.Word2Ind.get(word, -1) for word in text] for text in self.preprocessed['preprocessed_' + column]]
                 self.index['index_' + column] = [[number for number in numbers if number!=-1] for numbers in self.index['index_' + column]]
                 self.index['index_' + column] = [numbers if len(numbers)>0 else [self.word2Id[EMPTY]] for numbers in self.index['index_' + column]]
     
@@ -136,6 +145,8 @@ class preprocessor():
         add words in insert
         remove words whose counts are larger than max_count / smaller than min_count
         remove words whose appearance are larger than max_appearance / smaller than min_appearance
+        
+        then remove these words in self.preprocessed 
         more modifications to be added
         '''
         remove += [word for word in self.words if self.word_count[word]>max_count]
@@ -146,7 +157,41 @@ class preprocessor():
         self.words -= set(remove)
         self.words |= set(insert)
         self.words = list(self.words)
-
+        
+        self.Word2Ind = dict(zip(self.words, range(len(self.words))))
+        self.Ind2Word = dict(zip(range(len(self.words)), self.words))
+        
+        for item in self.preprocessed['preprocessed_Question']:
+            item = [word for word in item if self.Word2Ind.get(word, None)]
+        for item in self.preprocessed['preprocessed_Report']:
+            item = [word for word in item if self.Word2Ind.get(word, None)]
+        for item in self.preprocessed['preprocessed_Dialogue']:
+            for dialogue in item:
+                dialogue[1] = [word for word in dialogue[1] if self.Word2Ind.get(word, None)]
+        
+    def train_word2vec(self, sentences_path = None, vector_path = None, return_vectors=False):
+        '''
+        concatenate all sentences and train word vectors.
+        If sentences_path is not None, all sentences will be saved into a txt
+        If vector_path is not None, all word vectors will be saved into a csv 
+        '''
+        sentences = self.preprocessed['preprocessed_Question'] + \
+                    self.preprocessed['preprocessed_Report'] + \
+                    [speaks[1] for dialogue in self.preprocessed['preprocessed_Dialogue'] for speaks in dialogue]
+        if sentences_path:
+            with open(sentences_path, 'w+') as f:
+                for sentence in sentences:
+                    f.write(' '.join(sentence) + '\n')
+                f.close()
+        self.vectors = Word2Vec(sentences, min_count = 3, size = 100, workers = 6)
+        if vector_path:
+            data = pd.DataFrame({'Id' : list(range(len(self.vectors.wv.vocab))), 
+                                 'Vector': [list(self.vectors.wv[word]) for word in self.vectors.wv.vocab.keys()]},
+                                index = list(self.vectors.wv.vocab.keys()))
+            data.to_csv(vector_path)
+        if return_vectors:
+            return wv
+        
         
 if __name__ == '__main__':
     import time 
@@ -154,9 +199,11 @@ if __name__ == '__main__':
     TRAIN = 'AutoMaster_TrainSet.csv'
     TEST = 'AutoMaster_TestSet.csv'
     t1 = time.time()
-    processor = preprocessor(TRAIN, TEST)
+    processor = preprocessor(TRAIN, TEST, True)
     
     processor.process_columns()
+    
+    processor.train_word2vec('sentences.txt', 'word_vectors.csv')
     print('Total preprocessing time : {}'.format(time.time() - t1))
     
     total_word_number = len(processor.word_count.keys())
@@ -176,4 +223,3 @@ if __name__ == '__main__':
     print()
     print('number of words appeared in more than ten thousand records : {}/{}'.format(len([1 for value in processor.appearance.values() if value>=10000]), total_word_number))
     print('number of words whose counst are more than ten thousand: {}/{}'.format(len([1 for value in processor.word_count.values() if value>=10000]), total_word_number))
-    
