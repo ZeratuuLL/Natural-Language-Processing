@@ -16,5 +16,7 @@ I tested ```run.py``` for three times and the results are as following
 |       0.0664       |                     88.99                    |
 |       0.0659       |                     89.01                    |
 
+No trained model weights is uploaded since you can simply get the result by running ```python run.py```. The only thing you need is to have Pytorch version 1.0.0
+
 ### (f)
 I am not good at nor interested in this so I ignored this part.
