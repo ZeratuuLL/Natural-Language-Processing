@@ -183,14 +183,18 @@ class preprocessor():
                 for sentence in sentences:
                     f.write(' '.join(sentence) + '\n')
                 f.close()
-        self.vectors = Word2Vec(sentences, min_count = 3, size = 100, workers = 6)
+        self.vectors = Word2Vec(sentences, min_count = 3, size = 200, workers = 6)
         if vector_path:
             data = pd.DataFrame({'Id' : list(range(len(self.vectors.wv.vocab))), 
                                  'Vector': [list(self.vectors.wv[word]) for word in self.vectors.wv.vocab.keys()]},
                                 index = list(self.vectors.wv.vocab.keys()))
             data.to_csv(vector_path)
         if return_vectors:
-            return wv
+            return self.vectors
+        
+def pad_and_clip_sequence(sequences, max_len, start_id, end_id, pad_id):
+    sequences = [[start_id]+sequence[:max_len]+[end_id]+[pad_id]*max(0, max_len-2-len(sequence)) for sequence in sequences]
+    return sequences
         
         
 if __name__ == '__main__':
