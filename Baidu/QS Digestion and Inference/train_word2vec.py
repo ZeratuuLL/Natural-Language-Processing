@@ -36,6 +36,8 @@ for index, file_path in enumerate(QUESTIONS + REPORTS + DIALOGUES):
             if len(sentence)>0:
                 sentences += sentence
         f.close()
+        
+print('sentences all filtered') # just to tell you this part is over
 
 counter = utils.count_words(sentences)
 sentences = [utils.clean_sentence(sentence, counter, max_len=int(1e4), pad=False) for sentence in sentences]
@@ -43,7 +45,7 @@ sentences = [utils.clean_sentence(sentence, counter, max_len=int(1e4), pad=False
 print(len(sentences)) # just to tell you this part is over
 
 model = Word2Vec(sentences,
-                 size=config.HIDDEN,
+                 size=config.HIDDEN_SIZE,
                  min_count=config.MIN_COUNT, # this min_count is also used to select words in utils.clean_sentence
                  workers=config.NUM_WORKER,
                  window=config.WINDOW,
