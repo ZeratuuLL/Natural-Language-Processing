@@ -53,7 +53,7 @@ model = Word2Vec(sentences,
 
 model.save(MODEL_PATH)
 
-word2ind = {word: index for index, word in enumerate(wv_model.wv.index2word)}
-with open(WORD2IND_PATH, 'w+') as f:
+word2ind = {word: index for index, word in enumerate(model.wv.index2word)}
+with open(WORD2IND_PATH, 'wb') as f:
     pickle.dump(word2ind, f)
     f.close()
