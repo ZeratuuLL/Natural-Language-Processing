@@ -34,6 +34,7 @@ f.close()
 
 #hyperparameters
 MIN_COUNT = 3
+WINDOW = 4
 HIDDEN_SIZE = 300
 NUM_WORKER = 10
 REMOVE = list(PUNCTUATION) + [VERBAL, EMPTY, PIC, ''] + stop_words
