@@ -46,7 +46,8 @@ model = Word2Vec(sentences,
                  size=config.HIDDEN,
                  min_count=config.MIN_COUNT, # this min_count is also used to select words in utils.clean_sentence
                  workers=config.NUM_WORKER,
-                 window=config.WINDOW)
+                 window=config.WINDOW,
+                 iter=config.ITER)
 
 model.save(MODEL_PATH)
 
