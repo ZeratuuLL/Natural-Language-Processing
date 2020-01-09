@@ -20,6 +20,7 @@ DIALOGUES = ['TRAIN_Dialogue.txt','TEST_Dialogue.txt']
 REPORTS = ['TRAIN_Report.txt']
 MODEL_PATH = config.word2vec_model_path
 WORD2IND_PATH = config.word2ind_dic_path
+WORD_COUNT_PATH = config.word_count_path
 
 sentences = []
 
@@ -40,6 +41,7 @@ for index, file_path in enumerate(QUESTIONS + REPORTS + DIALOGUES):
 print('sentences all filtered') # just to tell you this part is over
 
 counter = utils.count_words(sentences)
+
 sentences = [utils.clean_sentence(sentence, counter, max_len=int(1e4), pad=False) for sentence in sentences]
 
 print(len(sentences)) # just to tell you this part is over
@@ -48,7 +50,7 @@ model = Word2Vec(sentences,
                  size=config.HIDDEN_SIZE,
                  min_count=config.MIN_COUNT, # this min_count is also used to select words in utils.clean_sentence
                  workers=config.NUM_WORKER,
-                 window=config.WINDOW,
+                 window=config.WINDOW, 
                  iter=config.ITER)
 
 model.save(MODEL_PATH)
@@ -56,4 +58,8 @@ model.save(MODEL_PATH)
 word2ind = {word: index for index, word in enumerate(model.wv.index2word)}
 with open(WORD2IND_PATH, 'wb') as f:
     pickle.dump(word2ind, f)
+    f.close()
+
+with open(WORD_COUNT_PATH, 'wb') as f:
+    pickle.dump(counter, f)
     f.close()

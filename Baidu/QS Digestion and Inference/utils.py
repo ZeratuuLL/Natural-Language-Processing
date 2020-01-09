@@ -6,6 +6,8 @@ This file:
 import pandas as pd
 import jieba
 from collections import Counter
+import numpy as np
+import math
 
 import config
 
@@ -123,7 +125,13 @@ def clean_sentence(sentence, counter, max_len=int(1e5), pad=True):
     '''
     sentence = [word for word in sentence if word not in REMOVE]
     sentence = sentence[:max_len]
-    sentence = [START] + [word if counter[word]>=MIN_COUNT else UNKNOWN for word in sentence] + [END] 
+    sentence = [START] + [word if counter.get(word, -1)>=MIN_COUNT else UNKNOWN for word in sentence] + [END] 
     if pad:
         sentence += [PAD]*(max_len+2-len(sentence))
     return sentence
+
+def get_maxlen(lens):
+    return math.ceil(np.mean(lens) + 2*np.std(lens))
+
+def tokenize(sentence, word2ind):
+    return [word2ind[word] for word in sentence]
