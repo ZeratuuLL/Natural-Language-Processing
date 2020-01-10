@@ -201,15 +201,15 @@ if __name__ == '__main__':
     print('hidden vector after attention size : {}\n'.format(real_hidden.size()))
     
     # test decoder without attention
-    print('Decoder without attention')
     test_dec = pytorch_decoder(vocab_size, embedding_weights, gate_type, hidden_size)
-    print('Decoding start')
+    print('Decoding start\n')
     dec_hidden = enc_hidden[[-1], :, :]
     test_output_start = [random.sample(all_words, 1) for _ in range(sentence_number)]
     dec_output = torch.tensor(test_output_start, dtype=torch.long)
     decoded = torch.zeros((sentence_number, output_length), dtype=torch.long)
+    decoded[: , [0]] = torch.tensor(test_output_start, dtype=torch.long)
     cell = torch.FloatTensor(1, sentence_number, hidden_size).normal_(0, 2)
-    for i in range(output_length):
+    for i in range(1, output_length):
         if gate_type=='lstm':
             dec_output, dec_hidden, cell = test_dec(dec_output, dec_hidden, enc_output, cell)
         else:
@@ -217,19 +217,19 @@ if __name__ == '__main__':
         _, dec_output = dec_output.topk(1) # top1 output
         dec_output = dec_output.long()
         decoded[:, [i]] = dec_output
-    print('Decoded sentences are :\n{}\n'.format(decoded))
+    print('Decoded sentences are :\n{}'.format(decoded))
     
     # test decoder with attention
-    print('Decoder with attention')
     test_attn = Bahdanau_Attention(hidden_size, bidirectional)
     test_dec = pytorch_decoder(vocab_size, embedding_weights, gate_type, hidden_size, attn=test_attn)
-    print('Decoding start')
+    print('Decoding start\n')
     dec_hidden = enc_hidden[[-1], :, :]
     test_output_start = [random.sample(all_words, 1) for _ in range(sentence_number)]
     dec_output = torch.tensor(test_output_start, dtype=torch.long)
     decoded = torch.zeros((sentence_number, output_length), dtype=torch.long)
+    decoded[: , [0]] = torch.tensor(test_output_start, dtype=torch.long)
     cell = torch.FloatTensor(1, sentence_number, hidden_size).normal_(0, 2)
-    for i in range(output_length):
+    for i in range(1, output_length):
         if gate_type=='lstm':
             dec_output, dec_hidden, cell = test_dec(dec_output, dec_hidden, enc_output, cell)
         else:
