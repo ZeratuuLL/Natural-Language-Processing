@@ -7,6 +7,8 @@ website (in Chinese) : https://aistudio.baidu.com/aistudio/competition/detail/3
   * **get_brands.py** : extracts brands from data
   * **read_data.py** : read in data and reorganize data from strings to formatted lists of words. Saves processed data to both csv and txt files. The saved content is somehow different
   * **train_word2vec.py** : add <START>, <END> and <UNK> tokens to the sentences and train the initial Word2Vec weights with independent sentences. Save trained weights and the word<-->index dictionary
+ * **clean_data.py** : preparing data for training. choose length of sequences. add <PAD> tokens or cut off tails. transform words to numbers. update Word2Vec weights.
+ * **models.py** : building blocks for Seq2Seq model
 
 ## Other things to mention
   
