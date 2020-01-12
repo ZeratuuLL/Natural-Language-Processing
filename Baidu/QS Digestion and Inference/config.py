@@ -39,7 +39,7 @@ stop_words = [stop_word.strip() for stop_word in f.readlines()]
 f.close()
 
 #hyperparameters
-TARGET_MIN_COUNT = 20 # the number requires to retrieve a word from REMOVE
+TARGET_MIN_COUNT = 100 # the number requires to retrieve a word from REMOVE
 MIN_COUNT = 3 # the number requires for a word to be in word2vec
 WINDOW = 5 # window size for word2vec training
 HIDDEN_SIZE = 300 # dimension of word vector

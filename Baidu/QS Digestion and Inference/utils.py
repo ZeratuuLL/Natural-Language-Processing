@@ -49,6 +49,7 @@ def process_sentence(sentence, split=False):
                         new_word = [VERBAL]
                     else:
                         new_word = jieba.lcut(value)
+                        new_word = [word.strip() for word in new_word]
                     if len(new_word) == 0:
                         new_word = [EMPTY]
                     if len(keys)>=1 and key == keys[-1]: # the same person talk twice
@@ -59,6 +60,7 @@ def process_sentence(sentence, split=False):
             return [list(item) for item in list(zip(keys, values))]
         else:
             new_word = jieba.lcut(sentence)
+            new_word = [word.strip() for word in new_word]
             #new_word = [word for word in new_word if word not in punctuation] # remove all punctuations
             if len(new_word) == 0:
                 new_word = [EMPTY]
@@ -104,16 +106,16 @@ def concat_dialogue(dialogue):
         result += list(item[1])
     return result
 
-def clean_sentence(sentence, counter, max_len=int(1e5), remove=REMOVE, add=False, pad=False):
+def clean_sentence(sentence, word_list, max_len=int(1e5), remove=REMOVE, add=False, pad=False):
     '''
     This function cleans a sentence:
-        remove punctuations
+        remove words that are not in word_list, for speed considertion, word_list is a dictionary with all values 1
         mask words that appear rarely with unknown words
-        add START and END token
+        add START, END and PAD token
     '''
     sentence = [word for word in sentence if word not in remove]
     sentence = sentence[:max_len]
-    sentence = [word if counter.get(word, -1)>=MIN_COUNT else UNKNOWN for word in sentence]
+    sentence = [word if word_list.get(word, 0) else UNKNOWN for word in sentence]
     if add:
         sentence = [START] + sentence + [END]
     if pad:

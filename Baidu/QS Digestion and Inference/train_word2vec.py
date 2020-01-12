@@ -51,7 +51,9 @@ for index, file_path in enumerate(REPORTS + QUESTIONS + DIALOGUES):
         
 print('sentences all filtered') # just to tell you this part is over
 
-sentences = [utils.clean_sentence(sentence, counter, max_len=int(1e4), remove=REMOVE, add=False, pad=False) for sentence in sentences]
+word_list = [word for word in counter.keys() if counter[word]>=config.MIN_COUNT] + [config.UNKNOWN, config.START, config.END, config.PAD]
+word_list = dict(zip(word_list, [1 for _ in word_list]))
+sentences = [utils.clean_sentence(sentence, word_list, max_len=int(1e4), remove=REMOVE, add=False, pad=False) for sentence in sentences]
 
 print(len(sentences)) # just to tell you this part is over
 
