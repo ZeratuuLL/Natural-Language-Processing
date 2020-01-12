@@ -21,28 +21,37 @@ REPORTS = ['TRAIN_Report.txt']
 MODEL_PATH = config.word2vec_model_path
 WORD2IND_PATH = config.word2ind_dic_path
 WORD_COUNT_PATH = config.word_count_path
+REMOVE = config.REMOVE
+
+with open(config.word_count_path, 'rb') as f:
+    counter = pickle.load(f)
+    f.close()
+    
+with open(config.target_word_count_path, 'rb') as f:
+    target_counter = pickle.load(f)
+    f.close()
+    
+REMOVE = [word for word in REMOVE if target_counter[word]<config.TARGET_MIN_COUNT] + [' ']# add back the words which appears some times in Report column
 
 sentences = []
 
-for index, file_path in enumerate(QUESTIONS + REPORTS + DIALOGUES):
+for index, file_path in enumerate(REPORTS + QUESTIONS + DIALOGUES):
     with open('./data/' + file_path, 'r') as f:
         for line in f.readlines():
             line = line[:-1] # to remove '\n' at the end of each line
             if index<3:
                 # directly process a single sentence
-                sentence = [[word for word in line.split(' ') if word not in config.REMOVE]] # make it a list of list
+                sentence = [[word for word in line.split(' ') if word not in REMOVE]] # make it a list of list
             else:
                 # first split the line to get each sentence
-                sentence = [[word for word in string.split(' ') if word not in config.REMOVE] for string in line.split('|')]
+                sentence = [[word for word in string.split(' ') if word not in REMOVE] for string in line.split('|')]
             if len(sentence)>0:
                 sentences += sentence
         f.close()
         
 print('sentences all filtered') # just to tell you this part is over
 
-counter = utils.count_words(sentences)
-
-sentences = [utils.clean_sentence(sentence, counter, max_len=int(1e4), pad=False) for sentence in sentences]
+sentences = [utils.clean_sentence(sentence, counter, max_len=int(1e4), remove=REMOVE, add=False, pad=False) for sentence in sentences]
 
 print(len(sentences)) # just to tell you this part is over
 

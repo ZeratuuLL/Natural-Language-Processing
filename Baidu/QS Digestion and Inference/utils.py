@@ -49,7 +49,6 @@ def process_sentence(sentence, split=False):
                         new_word = [VERBAL]
                     else:
                         new_word = jieba.lcut(value)
-                    #new_word = [word for word in new_word if word not in PUNCTUATION] # remove all punctuations
                     if len(new_word) == 0:
                         new_word = [EMPTY]
                     if len(keys)>=1 and key == keys[-1]: # the same person talk twice
@@ -105,33 +104,30 @@ def concat_dialogue(dialogue):
         result += list(item[1])
     return result
 
-def count_words(sentences):
-    '''
-    This function takes a list of [list of words] and count the appearance of each word
-    The words should be strings
-    '''
-    counter = {}
-    for sentence in sentences:
-        for word in sentence:
-            counter[word] = counter.get(word, 0) + 1
-    return counter
-
-def clean_sentence(sentence, counter, max_len=int(1e5), pad=True):
+def clean_sentence(sentence, counter, max_len=int(1e5), remove=REMOVE, add=False, pad=False):
     '''
     This function cleans a sentence:
         remove punctuations
         mask words that appear rarely with unknown words
         add START and END token
     '''
-    sentence = [word for word in sentence if word not in REMOVE]
+    sentence = [word for word in sentence if word not in remove]
     sentence = sentence[:max_len]
-    sentence = [START] + [word if counter.get(word, -1)>=MIN_COUNT else UNKNOWN for word in sentence] + [END] 
+    sentence = [word if counter.get(word, -1)>=MIN_COUNT else UNKNOWN for word in sentence]
+    if add:
+        sentence = [START] + sentence + [END]
     if pad:
         sentence += [PAD]*(max_len+2-len(sentence))
     return sentence
 
 def get_maxlen(lens):
+    '''
+    Calculates the allowed max length for a group of sentences
+    '''
     return math.ceil(np.mean(lens) + 2*np.std(lens))
 
 def tokenize(sentence, word2ind):
+    '''
+    Transform sentences of words to lists of integers
+    '''
     return [word2ind[word] for word in sentence]
