@@ -1,6 +1,7 @@
 from zhon.hanzi import punctuation as punc1
 from string import punctuation as punc2
 import pandas as pd
+import torch
 
 #paths
 train_path = './data/AutoMaster_TrainSet.csv'
@@ -18,7 +19,7 @@ word2ind_dic_path = './wv/word2ind.pkl'
 word_count_path = './wv/word_count.pkl'
 target_word_count_path = './wv/target_word_count.pkl'
 
-seq2seq_model_path = None
+seq2seq_model_path = './trained_seq2seq.pth'
 
 #special symbols
 PUNCTUATION = punc1 + punc2 + ' '
@@ -43,7 +44,8 @@ TARGET_MIN_COUNT = 100 # the number requires to retrieve a word from REMOVE
 MIN_COUNT = 3 # the number requires for a word to be in word2vec
 WINDOW = 5 # window size for word2vec training
 HIDDEN_SIZE = 300 # dimension of word vector
+N_LAYER = 3 # layer of encoder
 NUM_WORKER = 10
 REMOVE = list(PUNCTUATION) + [VERBAL, EMPTY, PIC, ''] + stop_words
 ITER = 3
-
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

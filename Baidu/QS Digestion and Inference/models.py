@@ -96,7 +96,7 @@ class Bahdanau_Attention(nn.Module):
         hidden_state = hidden_state.permute(1, 0, 2) # shape to (bs, 1, hidden_size)
         vec1 = self.fc1(encoder_outputs) # expected (bs, max_len, 2*hidden_size)
         vec2 = self.fc2(hidden_state) # expected (bs, 1, 2*hidden)
-        scores = F.tanh(vec1 + vec2) # (bs, max_len, 2*hidden)
+        scores = torch.tanh(vec1 + vec2) # (bs, max_len, 2*hidden)
         probs = F.softmax(self.fc3(scores), dim=1)# (bs, max_len, 1)
         
         return probs
@@ -400,7 +400,7 @@ if __name__ == '__main__':
     end_token = torch.tensor(Word2Ind['<END>'], dtype=torch.long)
     vocab_size = len(Ind2Word)
     gate_type = 'gru'
-    n_layers = 3
+    n_layers = config.N_LAYER
     
     embedding_weights = np.array([list(word2vec_model[Ind2Word[i]]) for i in Ind2Word.keys()])
     embedding_weights = torch.tensor(embedding_weights).to(device)
