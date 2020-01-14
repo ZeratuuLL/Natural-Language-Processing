@@ -1,13 +1,18 @@
 '''
 This file saves the buildings blocks for a seq2seq model
 '''
-
-import tensorflow as tf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 import random
 import numpy as np
+import pickle
+
+import config
+
+device = config.DEVICE
 
 class pytorch_encoder(nn.Module):
     '''
@@ -39,7 +44,7 @@ class pytorch_encoder(nn.Module):
             self.embedding.weight = nn.Parameter(embedding_weights)
         self.embedding.weight.requires_grad = not frozen
         
-    def forward(self, input_sequences):
+    def forward(self, input_sequences, embedding=None):
         '''
         Inputs:
         =======
@@ -50,7 +55,9 @@ class pytorch_encoder(nn.Module):
         output : size (bs, max_len, hidden_size)
         h : size (num_layers, bs, hidden_size)
         '''
-        embedded = self.embedding(input_sequences)
+        if embedding is None:
+            embedding = self.embedding
+        embedded = embedding(input_sequences)
         if self.gate_type == 'lstm':
             output, (h, c) = self.rnn_cell(embedded)
         else:
@@ -118,7 +125,7 @@ class pytorch_decoder(nn.Module):
             self.embedding.weight = nn.Parameter(embedding_weights)
         self.embedding.weight.requires_grad = not frozen
         
-    def forward(self, input, hidden, enc_output, cell=None):
+    def forward(self, input, hidden, enc_output, embedding=None, cell=None):
         '''
         Inputs:
         =======
@@ -133,7 +140,9 @@ class pytorch_decoder(nn.Module):
         hidden : size (1, bs, hidden_size) as the hidden cell of this step
         cell : size (1, bs, hidden_size) as the cell info of this steo if using LSTM
         '''
-        embedded = self.embedding(input)
+        if embedding is None:
+            embedding = self.embedding
+        embedded = embedding(input)
         if self.attn is not None:
             prob = self.attn(enc_output, hidden)
             context = torch.sum(prob*enc_output, dim=1, keepdim=True)
@@ -147,6 +156,133 @@ class pytorch_decoder(nn.Module):
             output, h = self.rnn_cell(embedded, hidden)
             output = self.softmax(self.output(output)).squeeze() # remove the second dim with length 1, which is seq length
             return output, h
+       
+class Seq2Seq(nn.Module):
+    
+    def __init__(self, vocab_size, start_token, end_token, embedding_weights=None, gate_type='gru', hidden_size=128, n_layers=2, attention=True, dropout_rate=0, teaching_rate=0.5, bidirectional=False, frozen=True):
+        super(Seq2Seq, self).__init__()
+        self.hidden_size = hidden_size
+        self.gate_type = gate_type
+        self.teaching_rate = teaching_rate
+        self.bidirectional = bidirectional
+        
+        self.encoder = pytorch_encoder(vocab_size, None, gate_type, hidden_size, n_layers, dropout_rate, bidirectional, False).to(device)
+        if attention:
+            self.attention = Bahdanau_Attention(hidden_size, bidirectional).to(device)
+        else:
+            self.attention = None
+        self.decoder = pytorch_decoder(vocab_size, None, gate_type, hidden_size, False, self.attention).to(device)
+        if embedding_weights is not None:
+            self.embedding = nn.Embedding(vocab_size, hidden_size).to(device)
+            self.embedding.weight = nn.Parameter(embedding_weights).to(device)
+            self.embedding.weight.requires_grad = not frozen
+        else:
+            self.embedding = None
+            
+        self.set_optimizers(0.001)
+        
+        self.start_token = start_token.to(device)
+        self.end_token = end_token.to(device)
+        self.teaching_rate = teaching_rate
+        
+    def set_optimizers(self, learning_rate):
+        self.embedding_optimizer = None
+        if self.embedding is not None:
+            if self.embedding.weight.requires_grad:
+                self.embedding_optimizer = optim.Adam(self.embedding.parameters(), learning_rate)
+        self.encoder_optimizer = optim.Adam(self.encoder.parameters(), learning_rate)
+        self.decoder_optimizer = optim.Adam(self.decoder.parameters(), learning_rate)
+        
+    def optimizer_zero_grad(self):
+        if self.embedding_optimizer is not None:
+            self.embedding_optimizer.zero_grad()
+        self.encoder_optimizer.zero_grad()
+        self.decoder_optimizer.zero_grad()
+        
+    def optimizer_step(self, clip_size=None):
+        if clip_size is not None:
+            if self.embedding is not None:
+                torch.nn.utils.clip_grad_norm_(self.embedding.parameters(),clip_size)
+            torch.nn.utils.clip_grad_norm_(self.encoder.parameters(),clip_size)
+            torch.nn.utils.clip_grad_norm_(self.decoder.parameters(),clip_size)
+        if self.embedding_optimizer is not None:
+            self.embedding_optimizer.step()
+        self.encoder_optimizer.step()
+        self.decoder_optimizer.step()
+
+    def set_embedding(self, self_embedding_weights=None, self_update=False, encoder_embedding_weights=None, decoder_embedding_weights=None):
+        if self_embedding_weights is not None:
+            if self_embedding_weights.size() == self.embedding.weight.size():
+                self.embedding.weight = nn.Parameter(self_embedding_weights).to(device)
+                self.embedding.weight.requires_grad = self_update
+            else:
+                print('Size does not equal. Self update failed')
+        if encoder_embedding_weights is not None:
+            if encoder_embedding_weights.size() == self.encoder.embedding.weight.size():
+                self.encoder.embedding.weight = nn.Parameter(encoder_embedding_weights).to(device)
+                self.encoder.embedding.weight.requires_grad = True
+            else:
+                print('Size does not equal. Encoder update failed')
+        if encoder_embedding_weights is not None:
+            if decoder_embedding_weights.size() == self.decoder.embedding.weight.size():
+                self.decoder.embedding.weight = nn.Parameter(decoder_embedding_weights).to(device)
+                self.decoder.embedding.weight.requires_grad = True
+            else:
+                print('Size does not equal. Decoder update failed')
+                
+    def train(self, dataset, epochs=10, learning_rate=None, batch_size=32, clip_size=None):
+        
+        if learning_rate is not None:
+            self.set_optimizers(learning_rate)
+        
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        criterion = nn.NLLLoss(reduce=False)
+        common_embedding = self.embedding
+        
+        for epoch in range(1, epochs+1):
+            
+            loss = 0
+            loss_log = []
+            
+            for batch, (X, y) in enumerate(loader):
+                
+                self.optimizer_zero_grad()
+                
+                X = X.to(device)
+                y = y.to(device)
+                
+                enc_output, enc_hidden = self.encoder(X, common_embedding)
+                dec_hidden = enc_hidden[[-1], :, :]
+                
+                notEnd = torch.ones(y.size(0)).to(device)
+                cell = torch.zeros(y.size(0), self.hidden_size)
+                
+                loss = 0
+                
+                for index in range(1, y.size(1)-1):
+                    dec_input = y[:, [index]]
+                    if self.gate_type == 'lstm':
+                        dec_output, dec_hidden, cell = self.decoder(dec_input, dec_hidden, enc_output, common_embedding, cell)
+                    else:
+                        dec_output, dec_hidden = self.decoder(dec_input, dec_hidden, enc_output, common_embedding)
+                    losses = criterion(dec_output, y[:, index+1])
+                    loss += (notEnd * losses).sum()
+                    
+                    notEnd = notEnd * ((y[:, index+1] != self.end_token).float().view(-1).to(device))
+    
+                    if not any(notEnd):
+                        break
+                    
+                loss /= y.size(0)
+                loss_log.append(loss.item())
+                
+                loss.backward()
+                self.optimizer_step(clip_size)
+                
+                print('\rEpoch {} Batch {}, training average loss {}'.format(epoch, batch, loss.item()), end='')
+            
+            print('\tEpoch {} average loss {:.4f}'.format(epoch, np.mean(loss_log)))
+            torch.save(self.state_dict(), config.seq2seq_model_path)
     
 # A test case below    
 if __name__ == '__main__':
@@ -238,3 +374,32 @@ if __name__ == '__main__':
         dec_output = dec_output.long()
         decoded[:, [i]] = dec_output
     print('Decoded sentences are :\n{}'.format(decoded))
+    
+    # test Seq2Seq model
+    word2vec_model = Word2Vec.load(config.word2vec_model_path)
+    with open(config.word2ind_dic_path, 'rb') as f:
+        Word2Ind = pickle.load(f)
+        f.close()
+    
+    Ind2Word = dict(zip(Word2Ind.values(), Word2Ind.keys()))
+    start_token =  torch.tensor(Word2Ind['<START>'], dtype=torch.long)
+    end_token = torch.tensor(Word2Ind['<END>'], dtype=torch.long)
+    vocab_size = len(Ind2Word)
+    gate_type = 'gru'
+    n_layers = 3
+    
+    embedding_weights = np.array([list(word2vec_model[Ind2Word[i]]) for i in Ind2Word.keys()])
+    embedding_weights = torch.tensor(embedding_weights).to(device)
+    
+    model = Seq2Seq(vocab_size, start_token, end_token, embedding_weights, gate_type, config.HIDDEN_SIZE, n_layers, True, 0, 1, False, True)
+    X = np.load(config.token_train_input_path)
+    y = np.load(config.token_train_target_path)
+    
+    X = torch.tensor(X, dtype=torch.long)
+    y = torch.tensor(y, dtype=torch.long)
+    
+    dataset = TensorDataset(X[:500, :30], y[:500, ])
+    loader = DataLoader(dataset, batch_size=32, shuffle=True)
+    
+    print('Seq2Seq training started!')
+    model.train(dataset, epochs=10, clip_size=5)
