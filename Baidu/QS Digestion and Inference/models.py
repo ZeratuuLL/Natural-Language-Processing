@@ -10,6 +10,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import random
 import numpy as np
 import pickle
+from gensim.models import Word2Vec
 
 import config
 
