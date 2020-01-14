@@ -1,5 +1,6 @@
 '''
 This file saves the buildings blocks for a seq2seq model
+Some test cases are also provided. If this file is run as the main file you can see the test result
 '''
 import torch
 import torch.nn as nn
@@ -49,6 +50,9 @@ class pytorch_encoder(nn.Module):
         Inputs:
         =======
         input_sequences : size (bs, max_len)
+        embedding : an embedding layer, if None then self.embedding will be used. 
+                    It can be used to pass an outside embedding layer. 
+                    This is necessary because we cannot use pytorch optimizers if self.embedding.weight.requires_grad = False
         
         Outputs:
         ========
@@ -79,8 +83,14 @@ class Bahdanau_Attention(nn.Module):
         
     def forward(self, encoder_outputs, hidden_state):
         '''
-        encoder_outputs should have shape (batch_size, max_len, hidden_size) or (batch_size, max_len, 2*hidden_size)
-        hidden_state should have shape (1, batch_size, hidden_size)
+        Inputs:
+        =======
+        encoder_outputs : size (batch_size, seq_len, hidden_size), the hidden state of each sentence at each step from the last layer of encoder.
+        hidden_state : size (1, batch_size, hidden_size), the hidden state of a certain step from decoder
+        
+        Outputs:
+        ========
+        probs : size (batch_size, seq_len, 1), the weight for each hidden state so that they can be combined as a new context vector for the decoder
         '''
         hidden_state = hidden_state.permute(1, 0, 2) # shape to (bs, 1, hidden_size)
         vec1 = self.fc1(encoder_outputs) # expected (bs, max_len, 2*hidden_size)
@@ -133,6 +143,9 @@ class pytorch_decoder(nn.Module):
         hidden : size (1, bs, hidden_size) as the previous hidden cell (output from previous step)
         enc_output : size (bs, max_len, hidden_size) or (bs, max_len, 2*hidden_size), the output features from the last layer of encoder
         cell : size (1, bs, hidden_size) cell for LSTM if necessary
+        embedding : an embedding layer, if None then self.embedding will be used. 
+                    It can be used to pass an outside embedding layer. 
+                    This is necessary because we cannot use pytorch optimizers if self.embedding.weight.requires_grad = False
         
         Outputs:
         ========
