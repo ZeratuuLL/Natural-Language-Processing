@@ -1,0 +1,1 @@
+This data is hierarchical. The goal is to learn the folder names (as classes) based on the contexts/questions.
