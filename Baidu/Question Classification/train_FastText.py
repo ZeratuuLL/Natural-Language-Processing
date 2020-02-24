@@ -80,7 +80,7 @@ def train_FastText(subject):
             X_sample = X_sample.to(device)
             logits = Network(X_sample)
             _, index = logits.topk(1, 1)
-            index = index.view(-1).numpy().tolist()
+            index = index.view(-1).cpu().numpy().tolist()
             predictions += index
     
     y_test = y_test.reshape(-1).tolist()
