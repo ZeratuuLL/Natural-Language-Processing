@@ -6,22 +6,37 @@ from config import device
 
 class TextCNN(nn.Module):
     
-    def __init__(self, window_size_list, word_size, num_classes, pad_token, dropout_rate = 0.1, embedding_size = 300):
+    def __init__(self, embedding_weight, window_size_list, word_size, num_classes, pad_token, dropout_rate = 0.1, embedding_size = 300):
+        '''
+        embedding_weight : the fixed embedding
+        window_size_list : a list choosing window sizes for CNN
+        word_size : number of vocabulary
+        num_classes : number of classes to classify
+        pad_token : the token for <PAD>
+        '''
         
         super(TextCNN, self).__init__()
+        self.fixed_embedding = torch.tensor(embedding_weight).to(device)
+        assert self.fixed_embedding.size(0) == word_size and self.fixed_embedding.size(1) == embedding_size
+        self.fixed_embedding[pad_token] = 0
 
         self.embedding = nn.Embedding(word_size, embedding_size, pad_token)
         self.CNN_list = []
         for window_size in window_size_list:
-            self.CNN_list.append(nn.Conv2d(1, 1, (window_size, embedding_size)).to(device))
+            self.CNN_list.append(nn.Conv2d(2, 1, (window_size, embedding_size)).to(device))
         self.fc = nn.Linear(len(window_size_list), num_classes)
         self.output = nn.LogSoftmax(dim = -1)
         self.dropout = nn.Dropout(p = dropout_rate)
         
     def forward(self, sentences):
         
+        fixed = torch.index_select(self.fixed_embedding, 0, sentences.reshape(-1))
+        fixed = fixed.reshape(sentences.size(0), sentences.size(1), -1)
+        fixed = fixed.unsqueeze(1)
+        
         embedded = self.embedding(sentences)
         embedded = embedded.unsqueeze(1) # add in_channel into shape
+        embedded = torch.cat([fixed, embedded], 1)
         
         feature_list = []
         for cnn_layer in self.CNN_list:

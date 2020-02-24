@@ -76,6 +76,10 @@ def sentence_proc(sentence, max_len, word2id):
 
 def filter_pad_words(texts, max_feature):
     
+    lens = [len(sentence) for sentence in texts]
+    max_len = int(np.mean(lens) + 2 * np.std(lens))
+    texts = [sentence[:max_len] for sentence in texts]
+    
     word_list = [word for sentence in texts for word in sentence]
     counter = Counter(word_list)
     counter = [(word, count) for word, count in counter.items()]
@@ -86,9 +90,6 @@ def filter_pad_words(texts, max_feature):
     word2id['<OOV>'] = 0
     word2id['<PAD>'] = len(word2id)
     
-    lens = [len(sentence) for sentence in texts]
-    max_len = int(np.mean(lens) + 2 * np.std(lens))
-    
     texts = [sentence_proc(sentence, max_len, word2id) for sentence in texts]
     
-    return texts, word2id
+    return texts, word2id, valid_words

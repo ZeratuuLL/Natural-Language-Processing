@@ -6,8 +6,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import TensorDataset
 
+from gensim.models import Word2Vec
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+import numpy as np
 import argparse
 import warnings
 warnings.filterwarnings("ignore")
@@ -21,9 +23,25 @@ def train_TextCNN(subject):
     common_texts = dataset['item'].tolist()
     
     print('Cleaning Data')
-    common_texts, word2id = filter_pad_words(common_texts, max_feature)
+    common_texts, word2id, valid_words = filter_pad_words(common_texts, max_feature)
+    id2word = dict(zip(word2id.values(), word2id.keys()))
+    origin_texts = [[id2word[ind] for ind in sentence] for sentence in common_texts]
     
-    Network = TextCNN(window_size_list, len(word2id), num_topics, len(word2id)-1, dropout_rate, embedding_size).to(device)
+    print('Training Word2Vec')
+    model = Word2Vec(origin_texts,
+                     size = embedding_size,
+                     min_count = 1, # this min_count is also used to select words in utils.clean_sentence
+                     workers = 3,
+                     window = 5, 
+                     iter = 3)
+    
+    print('Feeding weights')
+    fixed = np.zeros((len(word2id), embedding_size))
+    for word, ind in word2id.items():
+        fixed[ind] = np.array(model.wv[word])
+    fixed = torch.from_numpy(fixed).float()
+    
+    Network = TextCNN(fixed, window_size_list, len(word2id), num_topics, len(word2id)-1, dropout_rate, embedding_size).to(device)
     optimizer = optim.Adam(Network.parameters(), lr_schedule[0])
     
     print('Creating training/testing set')
