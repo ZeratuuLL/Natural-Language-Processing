@@ -18,8 +18,7 @@ def train_TextCNN(subject):
     root = roots[subject]
     dataset = build_dataset(root)
     num_topics = len(dataset['label'].unique())
-    dataset['item'] = dataset['item'].apply(lambda x:x.split())
-    common_texts=dataset['item'].tolist()
+    common_texts = dataset['item'].tolist()
     
     print('Cleaning Data')
     common_texts, word2id = filter_pad_words(common_texts, max_feature)

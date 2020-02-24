@@ -8,6 +8,8 @@ import jieba
 
 from collections import Counter
 
+jieba.load_userdict('./stopwords/Special_words.txt')
+
 def read_files(root):
     '''
     This function reads in all csv files lies directly under the root directory
@@ -21,26 +23,44 @@ def read_files(root):
     datasets = [pd.read_csv(name) for name in file_names]
     return datasets, classes
 
-def clean_line(line):
+remove = "[a-zA-Z0-9]|[\s+\-\|\!\/\[\]\{\}_,.$%^*(+\"\')]+|[:：+——()?【】《》“”！，。？、~@#￥%……&*（）]+|题目|排除|选项|知识点"
+
+def clean_sentence(line):
     '''
     This function cleans the context
     '''
-    line = re.sub(
-            "[a-zA-Z0-9]|[\s+\-\|\!\/\[\]\{\}_,.$%^*(+\"\')]+|[:：+——()?【】《》“”！，。？、~@#￥%……&*（）]+|题目", '',line)
+    line = re.sub(remove, '', line)
     tokens = jieba.cut(line, cut_all=False)
     tokens = [token for token in tokens if token not in stopwords]
     return " ".join(tokens)
+
+def clean_line(line):
+    part1, part2 = line.split('题型', 1) # part 1 is 题目
+    part2, part3 = part2.split('解析', 1) # part 2 is abanddoned
+    part3 = part3.split('解析')[1]
+    try:
+        part3, part4 = part3.split('知识点', 1) # part 3 is 解析, part 4 is 知识点
+    except ValueError:
+        part4 = ''
+    result = []
+    for line in [part1, part3, part4]:
+        result.append(clean_sentence(line))
+    return result
 
 def build_dataset(root):
     
     datasets, classes = read_files(root)
     
     for dataset, label in zip(datasets, classes):
-        dataset['item'] = dataset['item'].apply(lambda x:clean_line(x))
+        dataset['item'] = dataset['item'].apply(lambda x : clean_line(x))
+        dataset['question'] = dataset['item'].apply(lambda x : x[0]).apply(lambda x : x.split())
+        dataset['solution'] = dataset['item'].apply(lambda x : x[1]).apply(lambda x : x.split())
+        dataset['keypoints'] = dataset['item'].apply(lambda x : x[2]).apply(lambda x : x.split())
+        dataset['item'] = dataset['item'].apply(lambda x : ' '.join(x)).apply(lambda x : x.split())
         dataset['label'] = label
     
     dataset = pd.concat(datasets, ignore_index = True)
-    dataset = dataset[['item', 'label']]
+    dataset = dataset[['item', 'question', 'solution', 'keypoints', 'label']]
         
     return dataset
 

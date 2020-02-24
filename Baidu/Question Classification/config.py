@@ -23,7 +23,7 @@ max_feature = 10000
 embedding_size = 300
 bs = 64
 epoch = 30
-dropout_rate = 0.1
+dropout_rate = 0.2
 lr_schedule = {0:0.01, 10 : 0.005, 20 : 0.001}
 
 # hyper-parameters for FastText

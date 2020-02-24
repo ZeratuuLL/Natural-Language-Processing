@@ -18,13 +18,12 @@ def train_FastText(subject):
     root = roots[subject]
     dataset = build_dataset(root)
     num_topics = len(dataset['label'].unique())
-    dataset['item'] = dataset['item'].apply(lambda x:x.split())
-    common_texts=dataset['item'].tolist()
+    common_texts = dataset['item'].tolist()
     
     print('Cleaning Data')
     common_texts, word2id = filter_pad_words(common_texts, max_feature)
     
-    Network = FastText(embedding_size, len(word2id), num_topics, len(word2id)-1).to(device)
+    Network = FastText(embedding_size, dropout_rate, len(word2id), num_topics, len(word2id)-1).to(device)
     optimizer = optim.Adam(Network.parameters(), lr_schedule[0])
     
     print('Creating training/testing set')

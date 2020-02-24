@@ -4,7 +4,7 @@ import torch.functional as F
 
 class FastText(nn.Module):
     
-    def __init__(self, embedding_size, word_size, class_num, pad_token):
+    def __init__(self, embedding_size, dropout_rate, word_size, class_num, pad_token):
         
         super(FastText, self).__init__()
         self.embedding = nn.Embedding(word_size, embedding_size, pad_token)
